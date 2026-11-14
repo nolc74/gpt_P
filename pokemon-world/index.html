@@ -26,7 +26,7 @@ button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #111b15}
 .panel p{color:#e0ebd6;line-height:1.6;font-size:13px}
 .actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
 </style></head><body><div id="app">
-<header><b>🌿 포켓몬 월드: 첫 번째 모험</b><small>PIXEL EDITION v0.3</small></header>
+<header><b>🌿 포켓몬 월드: 첫 번째 모험</b><small>HAND-DRAWN PIXEL ART v0.4</small></header>
 <div id="stage"><canvas id="game"></canvas><div id="hud">📍 초록마을 외곽<br>🎒 몬스터볼 <b id="balls">5</b>개<br>⭐ 포획 포켓몬 <b id="caught">0</b>마리</div><div id="hint">방향키 또는 아래 버튼으로 이동 · 풀숲에서 야생 포켓몬 발견!</div><div id="dialog"><div class="panel" id="panel"></div></div></div>
 <div id="controls"><div id="pad"><button class="up" data-dir="up">▲</button><button class="left" data-dir="left">◀</button><button class="down" data-dir="down">▼</button><button class="right" data-dir="right">▶</button></div><div id="quick"><button id="team" class="secondary">내 포켓몬</button><button id="interact" class="secondary">조사</button></div></div>
 </div>
@@ -39,13 +39,126 @@ var grass=[{x:90,y:130,w:190,h:130},{x:520,y:90,w:190,h:150},{x:300,y:340,w:230,
 var trees=[[65,55],[135,45],[730,55],[770,160],[40,370],[700,390],[170,420],[610,420]];
 var species=[{name:"이상해씨",type:"풀/독",hp:22,color:"#4fba76",level:3},{name:"파이리",type:"불꽃",hp:20,color:"#f18b4b",level:3},{name:"꼬부기",type:"물",hp:24,color:"#63b9e8",level:2},{name:"구구",type:"노말/비행",hp:18,color:"#c5b5a2",level:2},{name:"캐터피",type:"벌레",hp:16,color:"#9dcc4c",level:2}];
 function resize(){W=400;H=250;canvas.width=W;canvas.height=H;ctx.imageSmoothingEnabled=false}window.addEventListener("resize",resize);resize();
-function rounded(x,y,w,h,r,c){ctx.fillStyle=c;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
-function drawGround(){ctx.fillStyle="#8bd0dc";ctx.fillRect(0,0,W,H);for(var y=0;y<H;y+=42)for(var x=0;x<W;x+=52){ctx.fillStyle=((x/52+y/42)%2)?"#83c77e":"#8bcf84";ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+26,y-9);ctx.lineTo(x+52,y);ctx.lineTo(x+26,y+9);ctx.closePath();ctx.fill()}ctx.fillStyle="#d9c49a";ctx.beginPath();ctx.moveTo(0,H*.55);ctx.lineTo(W*.34,H*.39);ctx.lineTo(W*.47,H*.44);ctx.lineTo(W*.22,H*.67);ctx.lineTo(0,H*.72);ctx.fill();ctx.beginPath();ctx.moveTo(W*.43,H);ctx.lineTo(W*.53,H);ctx.lineTo(W*.65,H*.55);ctx.lineTo(W*.57,H*.51);ctx.fill();ctx.fillStyle="#56b9d5";ctx.beginPath();ctx.ellipse(W*.83,H*.72,Math.min(80,W*.11),48,-.15,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#b5edf2";ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(W*.83,H*.72,Math.min(65,W*.09),36,-.15,0,Math.PI*2);ctx.stroke()}
-function drawGrass(g){var gx=g.x/800*W,gy=g.y/500*H,gw=g.w/800*W,gh=g.h/500*H;ctx.fillStyle="#348c4b";ctx.beginPath();ctx.roundRect(gx,gy,gw,gh,12);ctx.fill();for(var i=0;i<35;i++){var x=(g.x+(i*47)%g.w)/800*W,y=(g.y+(i*29)%g.h)/500*H;ctx.strokeStyle=i%2?"#83d65f":"#b2e76b";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y+5);ctx.lineTo(x-3,y-5);ctx.moveTo(x,y+5);ctx.lineTo(x+4,y-7);ctx.stroke()}}
-function drawTree(x,y){x=x/800*W;y=y/500*H;ctx.fillStyle="#795438";ctx.fillRect(x-5,y+14,10,24);ctx.fillStyle="#236b45";ctx.beginPath();ctx.arc(x,y,22,0,Math.PI*2);ctx.fill();ctx.fillStyle="#368b50";ctx.beginPath();ctx.arc(x-10,y-8,13,0,Math.PI*2);ctx.fill()}
-function drawPerson(x,y,color,label){x=x/800*W;y=y/500*H;ctx.fillStyle="#0003";ctx.beginPath();ctx.ellipse(x,y+17,13,5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y-8,8,0,Math.PI*2);ctx.fill();rounded(x-8,y,16,19,5,color);ctx.fillStyle="#ffe0bd";ctx.beginPath();ctx.arc(x,y-9,5,0,Math.PI*2);ctx.fill();ctx.fillStyle="#173047";ctx.font="11px sans-serif";ctx.textAlign="center";ctx.fillText(label,x,y+34)}
-function draw(){drawGround();grass.forEach(drawGrass);trees.forEach(function(t){drawTree(t[0],t[1])});var bx=W*.32,by=H*.18;rounded(bx,by+20,110,78,8,"#f0e3c5");ctx.fillStyle="#b65c4b";ctx.beginPath();ctx.moveTo(bx-8,by+25);ctx.lineTo(bx+55,by-18);ctx.lineTo(bx+118,by+25);ctx.fill();rounded(bx+43,by+58,24,40,4,"#795438");ctx.fillStyle="#fff";ctx.font="12px sans-serif";ctx.textAlign="center";ctx.fillText("초록마을",bx+55,by+112);drawPerson(W*.28,H*.55,"#e7a34f","마을 주민");var px=player.x/800*W,py=player.y/500*H;ctx.fillStyle="#0003";ctx.beginPath();ctx.ellipse(px,py+15,13,5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#315dbe";ctx.beginPath();ctx.arc(px,py-9,9,0,Math.PI*2);ctx.fill();rounded(px-9,py,18,20,5,"#e34d55");ctx.fillStyle="#ffe0bd";ctx.beginPath();ctx.arc(px,py-10,6,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.font="bold 11px sans-serif";ctx.textAlign="center";ctx.fillText("나",px,py-25)}
-function inGrass(){return grass.some(function(g){return player.x>g.x&&player.x<g.x+g.w&&player.y>g.y&&player.y<g.y+g.h})}
+function block(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))}
+function matrix(rows,x,y,scale,palette){for(var j=0;j<rows.length;j++)for(var i=0;i<rows[j].length;i++){var c=rows[j][i];if(c!==".")block(x+i*scale,y+j*scale,scale,scale,palette[c]||"#fff")}}
+var heroSprite=[
+".....BBBB.....",
+"....BBBBBB....",
+"...BBHHHHBB...",
+"...BHHHHHHB...",
+"....HFFFFH....",
+"....FFEEFF....",
+".....EEEE.....",
+"...RRRRRRRR...",
+"..RRRRRRRRRR..",
+"..RRRWWRRRRR..",
+"..RRRWWRRRRR..",
+"...RRRRRRRR...",
+"...NN..NN.....",
+"...NN..NN.....",
+"..NNN..NNN....",
+"..DD....DD...."
+];
+var npcSprite=[
+".....HHHH.....",
+"....HHHHHH....",
+"...HHFFFFHH...",
+"...HFFFFFFH...",
+"....FEEEEF....",
+".....EEEE.....",
+"...GGGGGGGG...",
+"..GGGGGGGGGG..",
+"..GGGWWGGGGG..",
+"..GGGWWGGGGG..",
+"...GGGGGGGG...",
+"...NN....NN...",
+"...NN....NN...",
+"..NNN....NNN..",
+"..DD......DD.."
+];
+var treeSprite=[
+"......LLLL......",
+"....LLLLLLLL....",
+"...LLLDDLLLLL...",
+"..LLLDDDDLLLLL..",
+".LLLLDDDDLLLLLL.",
+".LLLLLLLLLLLLLL.",
+"LLLDDLLLLLLDDLLL",
+"LLLDDLLLLLLDDLLL",
+".LLLLLLLLLLLLL..",
+"..LLLLLLLLLLL...",
+"....LLLLLLLL.....",
+"......TTTT.......",
+"......TTTT.......",
+"......TTTT.......",
+".....TTTTTT......",
+".....TTTTTT......"
+];
+function drawGround(){
+ block(0,0,W,H,"#79bd68");
+ var cols=Math.ceil(W/16),rows=Math.ceil(H/16);
+ for(var ty=0;ty<rows;ty++)for(var tx=0;tx<cols;tx++){
+  var v=(tx*7+ty*11)%5;
+  block(tx*16,ty*16,16,16,v===0?"#83c875":v===1?"#7fc16f":"#79bd68");
+  if(v===2){block(tx*16+4,ty*16+5,2,2,"#a1d77c");block(tx*16+11,ty*16+11,2,2,"#5caa5c")}
+ }
+ // old-fashioned square-edged dirt paths
+ for(var y=0;y<H;y+=16)for(var x=0;x<W;x+=16){
+  var wx=x/W*800,wy=y/H*500;
+  if((wy>260&&wy<365&&wx<380)||(wx>340&&wx<430&&wy>360)){
+   block(x,y,16,16,"#c6a56c");block(x+2,y+3,4,2,"#d9bc83");block(x+10,y+11,3,2,"#ae8d59");
+  }
+ }
+ // pond made from square water tiles
+ for(var yy=0;yy<5;yy++)for(var xx=0;xx<7;xx++){
+  var qx=Math.round(W*.78)+xx*8,qy=Math.round(H*.65)+yy*8;
+  if(xx+yy>1&&xx+yy<11){block(qx,qy,8,8,"#3f9fc0");if((xx+yy)%3===0)block(qx+2,qy+2,4,2,"#8ce0df")}
+ }
+}
+function drawGrass(g){
+ var gx=g.x/800*W,gy=g.y/500*H,gw=g.w/800*W,gh=g.h/500*H;
+ block(gx,gy,gw,gh,"#398b4c");
+ for(var y=gy;y<gy+gh;y+=8)for(var x=gx;x<gx+gw;x+=8){
+  block(x+1,y+1,2,5,"#65b957");block(x+4,y+2,2,4,"#9ad65e");
+  if(((x+y)/8)%3===0)block(x+5,y+5,2,2,"#b8e47a");
+ }
+}
+function drawTree(x,y){
+ x=x/800*W;y=y/500*H;
+ block(x-7,y+13,14,18,"#69452e");block(x-3,y+13,4,18,"#9a6840");
+ matrix(treeSprite,x-16,y-17,2,{L:"#287447",D:"#1d603c",T:"#795033"});
+ block(x-12,y-9,6,4,"#48a65a");block(x+5,y-1,5,4,"#409653");
+}
+function drawPerson(x,y,color,label){
+ x=x/800*W;y=y/500*H;
+ block(x-10,y+25,20,4,"#54844b");
+ matrix(npcSprite,x-12,y-27,2,{H:"#6b4932",F:"#f1c49a",E:"#f1c49a",G:color==="#e7a34f"?"#e4a044":"#4f83ba",W:"#f3dfb1",N:"#263b65",D:"#263b65"});
+ ctx.fillStyle="#203626";ctx.font="8px monospace";ctx.textAlign="center";ctx.fillText(label,x,y+42);
+}
+function draw(){
+ drawGround();
+ grass.forEach(drawGrass);
+ trees.forEach(function(t){drawTree(t[0],t[1])});
+ var bx=W*.32,by=H*.18;
+ // pixel-art village house, built from hard-edged tiles
+ block(bx-5,by+22,120,75,"#9a7449");
+ block(bx,by+24,110,70,"#e5d6a5");
+ block(bx-8,by+18,126,12,"#8c493d");
+ block(bx+2,by+8,106,12,"#b85b49");
+ block(bx+12,by-2,86,12,"#b85b49");
+ block(bx+24,by-10,62,10,"#8c493d");
+ block(bx+43,by+55,24,39,"#68442e");
+ block(bx+48,by+60,5,5,"#d9b36d");
+ block(bx+14,by+39,18,18,"#5b9db0");block(bx+17,by+42,12,12,"#b5e5d7");
+ block(bx+78,by+39,18,18,"#5b9db0");block(bx+81,by+42,12,12,"#b5e5d7");
+ block(bx+48,by+13,18,5,"#f2e4b8");
+ ctx.fillStyle="#263d2a";ctx.font="bold 9px monospace";ctx.textAlign="center";ctx.fillText("초록마을",bx+55,by+111);
+ drawPerson(W*.28,H*.55,"#e7a34f","주민");
+ var px=player.x/800*W,py=player.y/500*H;
+ block(px-10,py+25,20,4,"#54844b");
+ matrix(heroSprite,Math.round(px-14),Math.round(py-31),2,{B:"#315caa",H:"#5b3828",F:"#f2c69b",E:"#f2c69b",R:"#d94b45",W:"#f0dcae",N:"#293d68",D:"#293d68"});
+ block(px-5,py-17,2,2,"#30251f");block(px+4,py-17,2,2,"#30251f");
+}function inGrass(){return grass.some(function(g){return player.x>g.x&&player.x<g.x+g.w&&player.y>g.y&&player.y<g.y+g.h})}
 function move(){if(dialog)return;var dx=0,dy=0;if(keys.left||keys.ArrowLeft)dx--;if(keys.right||keys.ArrowRight)dx++;if(keys.up||keys.ArrowUp)dy--;if(keys.down||keys.ArrowDown)dy++;if(dx||dy){var l=Math.hypot(dx,dy);player.x=Math.max(15,Math.min(785,player.x+dx/l*player.speed));player.y=Math.max(25,Math.min(485,player.y+dy/l*player.speed));if(++steps%22===0&&inGrass()&&Math.random()<.48)startEncounter()}}
 function loop(){move();ctx.clearRect(0,0,W,H);draw();requestAnimationFrame(loop)}loop();
 function show(html){dialog=true;document.getElementById("panel").innerHTML=html;document.getElementById("dialog").style.display="flex"}function hide(){dialog=false;document.getElementById("dialog").style.display="none"}
