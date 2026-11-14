@@ -33,12 +33,12 @@ button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #111b15}
 <script>
 (function(){
 var canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),stage=document.getElementById("stage");
-var W=800,H=500,keys={},dialog=false,balls=5,team=[],encounter=null,steps=0;
+var W=240,H=160,keys={},dialog=false,balls=5,team=[],encounter=null,steps=0;
 var player={x:400,y:280,speed:2.6,dir:"down",walking:0};
 var grass=[{x:90,y:130,w:190,h:130},{x:520,y:90,w:190,h:150},{x:300,y:340,w:230,h:100}];
 var trees=[[65,55],[135,45],[730,55],[770,160],[40,370],[700,390],[170,420],[610,420]];
 var species=[{name:"이상해씨",type:"풀/독",hp:22,color:"#4fba76",level:3},{name:"파이리",type:"불꽃",hp:20,color:"#f18b4b",level:3},{name:"꼬부기",type:"물",hp:24,color:"#63b9e8",level:2},{name:"구구",type:"노말/비행",hp:18,color:"#c5b5a2",level:2},{name:"캐터피",type:"벌레",hp:16,color:"#9dcc4c",level:2}];
-function resize(){W=400;H=250;canvas.width=W;canvas.height=H;ctx.imageSmoothingEnabled=false}window.addEventListener("resize",resize);resize();
+function resize(){W=240;H=160;canvas.width=W;canvas.height=H;ctx.imageSmoothingEnabled=false}window.addEventListener("resize",resize);resize();
 function block(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))}
 function matrix(rows,x,y,scale,palette){for(var j=0;j<rows.length;j++)for(var i=0;i<rows[j].length;i++){var c=rows[j][i];if(c!==".")block(x+i*scale,y+j*scale,scale,scale,palette[c]||"#fff")}}
 // 16x20 trainer sprites: front, back and side views, drawn as actual pixel clusters.
@@ -100,80 +100,68 @@ var treeSprite=[
 ".....TTTTTT......",
 ".....TTTTTT......"
 ];
+
+// Emerald-inspired 16px tile renderer: layered grass, path edges, water, roofs and compact trainer sprites.
+function tile(x,y,base,detail,seed){
+ block(x,y,16,16,base);
+ if(seed%3===0){block(x+2,y+4,2,2,detail);block(x+11,y+10,2,2,detail)}
+ if(seed%4===1){block(x+6,y+2,1,3,detail);block(x+7,y+3,1,2,detail)}
+}
 function drawGround(){
- block(0,0,W,H,"#79bd68");
- var cols=Math.ceil(W/16),rows=Math.ceil(H/16);
- for(var ty=0;ty<rows;ty++)for(var tx=0;tx<cols;tx++){
-  var v=(tx*7+ty*11)%5;
-  block(tx*16,ty*16,16,16,v===0?"#83c875":v===1?"#7fc16f":"#79bd68");
-  if(v===2){block(tx*16+4,ty*16+5,2,2,"#a1d77c");block(tx*16+11,ty*16+11,2,2,"#5caa5c")}
+ var palette=["#70b85c","#76bd61","#7bc365","#6fb458"];
+ for(var y=0;y<H;y+=16)for(var x=0;x<W;x+=16)tile(x,y,palette[((x/16*3+y/16*5)%4+4)%4],"#91cf70",(x/16*7+y/16*11)%9);
+ // dirt path with alternating warm pixels and clearly readable tile seams
+ for(var y=80;y<128;y+=16)for(var x=0;x<128;x+=16){
+  block(x,y,16,16,"#c9a66c");block(x,y,16,2,"#d8ba83");block(x+2,y+6,3,2,"#b18d59");block(x+10,y+11,4,2,"#d9bd88");
  }
- // old-fashioned square-edged dirt paths
- for(var y=0;y<H;y+=16)for(var x=0;x<W;x+=16){
-  var wx=x/W*800,wy=y/H*500;
-  if((wy>260&&wy<365&&wx<380)||(wx>340&&wx<430&&wy>360)){
-   block(x,y,16,16,"#c6a56c");block(x+2,y+3,4,2,"#d9bc83");block(x+10,y+11,3,2,"#ae8d59");
-  }
- }
- // pond made from square water tiles
- for(var yy=0;yy<5;yy++)for(var xx=0;xx<7;xx++){
-  var qx=Math.round(W*.78)+xx*8,qy=Math.round(H*.65)+yy*8;
-  if(xx+yy>1&&xx+yy<11){block(qx,qy,8,8,"#3f9fc0");if((xx+yy)%3===0)block(qx+2,qy+2,4,2,"#8ce0df")}
+ for(var y=112;y<160;y+=16)for(var x=96;x<144;x+=16){block(x,y,16,16,"#c9a66c");block(x+3,y+4,3,2,"#b18d59");block(x+10,y+10,3,2,"#dfc38e")}
+ // emerald-like pond, stepped shoreline and animated-looking highlights
+ for(var y=96;y<160;y+=16)for(var x=176;x<240;x+=16){
+  block(x,y,16,16,"#d5c28a");block(x+2,y+2,12,12,"#3d9fc1");block(x+4,y+4,8,8,"#4eb1cf");
+  if((x+y)%32===0){block(x+4,y+5,5,2,"#a0e3e1");block(x+10,y+10,2,2,"#287fa9")}
  }
 }
 function drawGrass(g){
- var gx=Math.round(g.x/2),gy=Math.round(g.y/2),gw=Math.round(g.w/2),gh=Math.round(g.h/2);
- // Dense, individually varied 8px grass tiles with darker borders and bright tips.
- for(var y=gy;y<gy+gh;y+=8)for(var x=gx;x<gx+gw;x+=8){
-  var n=(Math.floor(x/8)*13+Math.floor(y/8)*7)%5;
-  block(x,y,8,8,n===0?"#347f45":"#398b4c");
-  block(x+1,y+2,2,4,n===2?"#78c85b":"#58ad51");
-  block(x+4,y+1,2,5,n===1?"#b0df68":"#86c956");
-  block(x+6,y+4,1,3,"#2c713e");
-  if(n===3)block(x+2,y+1,2,2,"#c1e878");
+ var gx=Math.round(g.x/800*W),gy=Math.round(g.y/500*H),gw=Math.round(g.w/800*W),gh=Math.round(g.h/500*H);
+ for(var y=gy;y<gy+gh;y+=16)for(var x=gx;x<gx+gw;x+=16){
+  block(x,y,16,16,"#398b4c");
+  block(x+1,y+3,3,8,"#4ca653");block(x+5,y+1,2,10,"#83c85b");
+  block(x+8,y+4,3,9,"#2e7845");block(x+11,y+2,3,8,"#69b94e");
+  block(x+4,y+11,3,3,"#a0d96b");block(x+12,y+12,2,2,"#245f3a");
  }
- // irregular leafy edge highlights keep the patch from looking like a flat rectangle
- for(var x=gx;x<gx+gw;x+=8){block(x,gy,8,1,"#65b957");block(x,gy+gh-1,8,1,"#286e3c")}
+ for(var x=gx;x<gx+gw;x+=16){block(x,gy,16,2,"#79c75b");block(x,gy+gh-2,16,2,"#286e3e")}
 }
 function drawTree(x,y){
  x=x/800*W;y=y/500*H;
- block(x-7,y+13,14,18,"#69452e");block(x-3,y+13,4,18,"#9a6840");
- matrix(treeSprite,x-16,y-17,2,{L:"#287447",D:"#1d603c",T:"#795033"});
- block(x-12,y-9,6,4,"#48a65a");block(x+5,y-1,5,4,"#409653");
+ block(x-5,y+9,10,18,"#765034");block(x-2,y+10,3,16,"#a87949");
+ matrix(treeSprite,x-16,y-17,1,{L:"#287447",D:"#1c603c",T:"#795033"});
+ block(x-11,y-9,5,3,"#55ad5b");block(x+4,y-2,4,3,"#469b50");
 }
 function drawPerson(x,y,color,label){
  x=x/800*W;y=y/500*H;
- block(x-10,y+25,20,4,"#54844b");
- matrix(npcSprite,x-12,y-27,2,{H:"#6b4932",F:"#f1c49a",E:"#f1c49a",G:color==="#e7a34f"?"#e4a044":"#4f83ba",W:"#f3dfb1",N:"#263b65",D:"#263b65"});
- ctx.fillStyle="#203626";ctx.font="8px monospace";ctx.textAlign="center";ctx.fillText(label,x,y+42);
+ block(x-7,y+10,14,3,"#4b8847");
+ matrix(npcSprite,x-7,y-16,1,{H:"#765039",F:"#f1c49a",E:"#f1c49a",G:color==="#e7a34f"?"#e4a044":"#4f83ba",W:"#f3dfb1",N:"#263b65",D:"#263b65"});
+ ctx.fillStyle="#203626";ctx.font="6px monospace";ctx.textAlign="center";ctx.fillText(label,x,y+22);
 }
 function draw(){
- drawGround();
- grass.forEach(drawGrass);
- trees.forEach(function(t){drawTree(t[0],t[1])});
- var bx=W*.32,by=H*.18;
- // pixel-art village house, built from hard-edged tiles
- block(bx-5,by+22,120,75,"#9a7449");
- block(bx,by+24,110,70,"#e5d6a5");
- block(bx-8,by+18,126,12,"#8c493d");
- block(bx+2,by+8,106,12,"#b85b49");
- block(bx+12,by-2,86,12,"#b85b49");
- block(bx+24,by-10,62,10,"#8c493d");
- block(bx+43,by+55,24,39,"#68442e");
- block(bx+48,by+60,5,5,"#d9b36d");
- block(bx+14,by+39,18,18,"#5b9db0");block(bx+17,by+42,12,12,"#b5e5d7");
- block(bx+78,by+39,18,18,"#5b9db0");block(bx+81,by+42,12,12,"#b5e5d7");
- block(bx+48,by+13,18,5,"#f2e4b8");
- ctx.fillStyle="#263d2a";ctx.font="bold 9px monospace";ctx.textAlign="center";ctx.fillText("초록마을",bx+55,by+111);
- drawPerson(W*.28,H*.55,"#e7a34f","주민");
+ drawGround();grass.forEach(drawGrass);trees.forEach(function(t){drawTree(t[0],t[1])});
+ // compact red-roofed Hoenn-style town house with roof tiles, windows and doorway
+ var bx=98,by=16;
+ block(bx-2,by+25,66,40,"#b58b5c");block(bx,by+27,62,36,"#e8d9a5");
+ block(bx-5,by+19,72,12,"#9b493d");block(bx,by+12,62,10,"#bd5b4b");
+ for(var rx=bx+3;rx<bx+60;rx+=12){block(rx,by+13,2,7,"#d77a61");block(rx+5,by+19,4,2,"#853c38")}
+ block(bx+9,by+33,12,12,"#4d91a5");block(bx+11,by+35,8,8,"#b8e4d8");block(bx+43,by+33,12,12,"#4d91a5");block(bx+45,by+35,8,8,"#b8e4d8");
+ block(bx+27,by+44,10,19,"#755037");block(bx+29,by+47,2,2,"#e4c276");
+ ctx.fillStyle="#28452d";ctx.font="6px monospace";ctx.textAlign="center";ctx.fillText("초록마을",bx+31,by+72);
+ drawPerson(220,75,"#e7a34f","주민");
  var px=player.x/800*W,py=player.y/500*H;
- // compact oval shadow and a two-step foot animation while walking
- block(px-10,py+7,20,4,"#54844b");block(px-7,py+7,14,2,"#426f43");
+ block(px-6,py+5,12,2,"#4c8748");
  var sprite=heroSprites[player.dir]||heroSprites.down;
- matrix(sprite,Math.round(px-16),Math.round(py-28),2,{B:"#315caa",H:"#5b3828",F:"#f2c69b",E:"#f2c69b",R:"#d94b45",W:"#f0dcae",N:"#293d68",D:"#293d68"});
- if(player.walking){var step=Math.floor(player.walking/5)%2;if(step===0){block(px-10,py+8,5,3,"#293d68");block(px+5,py+8,5,3,"#293d68")}else{block(px-7,py+8,5,3,"#293d68");block(px+2,py+8,5,3,"#293d68")}}
- if(player.dir!=="up"){block(px-7,py-13,2,2,"#30251f");block(px+5,py-13,2,2,"#30251f")}
-}function inGrass(){return grass.some(function(g){return player.x>g.x&&player.x<g.x+g.w&&player.y>g.y&&player.y<g.y+g.h})}
+ matrix(sprite,Math.round(px-8),Math.round(py-14),1,{B:"#315caa",H:"#65412c",F:"#f2c69b",E:"#f2c69b",R:"#d94b45",W:"#f0dcae",N:"#293d68",D:"#293d68"});
+ if(player.walking){var step=Math.floor(player.walking/5)%2;if(step===0){block(px-5,py+5,3,2,"#293d68");block(px+2,py+5,3,2,"#293d68")}else{block(px-4,py+5,3,2,"#293d68");block(px+1,py+5,3,2,"#293d68")}}
+ if(player.dir!=="up"){block(px-4,py-7,1,1,"#30251f");block(px+3,py-7,1,1,"#30251f")}
+}
+function inGrass(){return grass.some(function(g){return player.x>g.x&&player.x<g.x+g.w&&player.y>g.y&&player.y<g.y+g.h})}
 function move(){if(dialog)return;var dx=0,dy=0;if(keys.left||keys.ArrowLeft)dx--;if(keys.right||keys.ArrowRight)dx++;if(keys.up||keys.ArrowUp)dy--;if(keys.down||keys.ArrowDown)dy++;if(dx||dy){if(Math.abs(dx)>Math.abs(dy))player.dir="side";else player.dir=dy<0?"up":"down";var l=Math.hypot(dx,dy);player.x=Math.max(15,Math.min(785,player.x+dx/l*player.speed));player.y=Math.max(25,Math.min(485,player.y+dy/l*player.speed));player.walking++;if(++steps%22===0&&inGrass()&&Math.random()<.48)startEncounter()}else player.walking=0}
 function loop(){move();ctx.clearRect(0,0,W,H);draw();requestAnimationFrame(loop)}loop();
 function show(html){dialog=true;document.getElementById("panel").innerHTML=html;document.getElementById("dialog").style.display="flex"}function hide(){dialog=false;document.getElementById("dialog").style.display="none"}
