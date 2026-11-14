@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Another Red 파일 탐색기</title>
+<style>
+:root{color-scheme:dark;--bg:#10151d;--panel:#192330;--line:#2b394a;--muted:#9aabba;--text:#edf4fb;--accent:#62d5a5}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif}
+header{padding:24px max(18px,calc((100% - 1100px)/2));background:#151e29;border-bottom:1px solid var(--line)}
+h1{font-size:24px;margin:0 0 6px}p{margin:0;color:var(--muted)}
+main{max-width:1100px;margin:22px auto;padding:0 18px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stat strong{display:block;font-size:22px}.stat span{color:var(--muted);font-size:13px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+input,select{background:#101923;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:11px;font:inherit}
+input{flex:1;min-width:220px}select{min-width:150px}
+.layout{display:grid;grid-template-columns:260px 1fr;gap:12px}
+h2{font-size:15px;margin:0 0 10px}.folders{max-height:65vh;overflow:auto}
+.folder{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:7px 8px;border-radius:7px;cursor:pointer;overflow-wrap:anywhere}
+.folder:hover,.folder.active{background:#26394a}.filelist{max-height:65vh;overflow:auto}
+.file{display:grid;grid-template-columns:minmax(0,1fr) 95px 75px;gap:12px;padding:10px 8px;border-bottom:1px solid var(--line);align-items:center}
+.file:last-child{border:0}.path{overflow-wrap:anywhere}.ext,.size{color:var(--muted);font-size:13px}.size{text-align:right}
+.status{padding:18px;text-align:center;color:var(--muted)}
+.detail{margin-top:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:700px){.layout{grid-template-columns:1fr}.folders{max-height:180px}.filelist{max-height:55vh}.stats{grid-template-columns:1fr}.file{grid-template-columns:minmax(0,1fr) 55px 65px;gap:6px}}
+</style>
+</head>
+<body>
+<header><h1>🗂️ Another Red 파일 탐색기</h1><p>GitHub Actions가 압축 해제 후 생성한 파일 목록을 검색하고 살펴보는 화면이야.</p></header>
+<main>
+<div class="stats">
+ <div class="stat"><strong id="count">-</strong><span>전체 파일</span></div>
+ <div class="stat"><strong id="total">-</strong><span>압축 해제 용량</span></div>
+ <div class="stat"><strong id="types">-</strong><span>파일 종류</span></div>
+</div>
+<div class="toolbar">
+ <input id="search" placeholder="파일명 또는 경로 검색…">
+ <select id="extension"><option value="">모든 확장자</option></select>
+ <button id="refresh">목록 새로고침</button>
+</div>
+<div class="layout">
+ <section class="panel folders"><h2>폴더</h2><div id="folders"></div></section>
+ <section class="panel"><h2 id="listTitle">파일 목록</h2><div id="files" class="filelist"><div class="status">파일 목록을 불러오는 중…</div></div><div id="detail" class="detail"></div></section>
+</div>
+<p id="source" style="margin-top:14px"></p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let inventory=null, selectedFolder="";
+function fmt(n){if(n<1024)return n+" B";if(n<1048576)return (n/1024).toFixed(1)+" KB";if(n<1073741824)return (n/1048576).toFixed(1)+" MB";return (n/1073741824).toFixed(2)+" GB"}
+function folderOf(path){const i=path.lastIndexOf("/");return i<0?"(최상위)":path.slice(0,i)}
+function render(){
+ if(!inventory)return;
+ const q=$("search").value.trim().toLowerCase(), ext=$("extension").value;
+ const all=inventory.files||[];
+ const filtered=all.filter(f=>(!selectedFolder||folderOf(f.path)===selectedFolder||folderOf(f.path).startsWith(selectedFolder+"/"))&&(!ext||f.extension===ext)&&(!q||f.path.toLowerCase().includes(q)));
+ $("listTitle").textContent="파일 목록 ("+filtered.length+"개)";
+ $("files").innerHTML=filtered.length?filtered.map((f,i)=>'<div class="file"><span class="path">'+escapeHtml(f.path)+'</span><span class="ext">'+escapeHtml(f.extension)+'</span><span class="size">'+fmt(f.size_bytes)+'</span></div>').join(""):'<div class="status">조건에 맞는 파일이 없어.</div>';
+ $("detail").textContent="파일을 선택하면 경로와 크기를 여기서 확인할 수 있어. (현재는 파일 목록/메타데이터 탐색 기능)";
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function renderFolders(){
+ const dirs=new Set([""]);
+ (inventory.files||[]).forEach(f=>{const parts=f.path.split("/");for(let i=1;i<parts.length;i++)dirs.add(parts.slice(0,i).join("/"))});
+ const sorted=[...dirs].sort((a,b)=>a.localeCompare(b));
+ $("folders").innerHTML=sorted.map(d=>'<button class="folder '+(selectedFolder===d?'active':'')+'" data-folder="'+escapeHtml(d)+'">'+(d||"📁 전체 파일")+'</button>').join("");
+ $("folders").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{selectedFolder=b.dataset.folder;renderFolders();render()}));
+}
+async function load(){
+ $("files").innerHTML='<div class="status">목록을 불러오는 중…</div>';
+ try{
+  const r=await fetch("../analysis/another-red-inventory.json?ts="+Date.now());
+  if(!r.ok)throw new Error("목록 파일이 아직 없어. 먼저 압축 해제 작업을 실행해줘.");
+  inventory=await r.json();
+  $("count").textContent=(inventory.file_count||0).toLocaleString();
+  $("total").textContent=fmt(inventory.total_uncompressed_bytes||0);
+  $("types").textContent=Object.keys(inventory.extensions||{}).length;
+  $("source").textContent="원본: "+(inventory.source||"ZIP")+" · 목록 생성 후 새로고침하면 최신 결과가 보여.";
+  const exts=Object.keys(inventory.extensions||{}).sort();
+  $("extension").innerHTML='<option value="">모든 확장자</option>'+exts.map(e=>'<option value="'+escapeHtml(e)+'">'+escapeHtml(e)+' ('+inventory.extensions[e]+')</option>').join("");
+  renderFolders();render();
+ }catch(e){$("files").innerHTML='<div class="status">'+escapeHtml(e.message)+'</div>';$("count").textContent="-";$("total").textContent="-";$("types").textContent="-"}
+}
+$("search").addEventListener("input",render);$("extension").addEventListener("change",render);$("refresh").addEventListener("click",load);load();
+</script>
+</body></html>
