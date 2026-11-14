@@ -1,0 +1,98 @@
+name: Extract Another Red ZIP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Another Red release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p input extracted
+          gh release download assets-v1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "Pokemon.Another.Red_PWT_250821_2.1.zip" \
+            --dir input
+          test -s "input/Pokemon.Another.Red_PWT_250821_2.1.zip"
+
+      - name: Extract ZIP
+        run: |
+          unzip -q "input/Pokemon.Another.Red_PWT_250821_2.1.zip" -d extracted
+          echo "Extracted files: $(find extracted -type f | wc -l)"
+          echo "Extracted size:"
+          du -sh extracted
+
+      - name: Build file inventory
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from collections import Counter
+          root = Path("extracted")
+          files = []
+          ext_counts = Counter()
+          total = 0
+          for p in root.rglob("*"):
+              if not p.is_file():
+                  continue
+              size = p.stat().st_size
+              total += size
+              ext = p.suffix.lower() or "[no extension]"
+              ext_counts[ext] += 1
+              files.append({
+                  "path": p.relative_to(root).as_posix(),
+                  "size_bytes": size,
+                  "extension": ext
+              })
+          files.sort(key=lambda x: x["path"].lower())
+          report = {
+              "source": "Pokemon.Another.Red_PWT_250821_2.1.zip",
+              "file_count": len(files),
+              "total_uncompressed_bytes": total,
+              "extensions": dict(ext_counts.most_common()),
+              "files": files
+          }
+          out = Path("analysis/another-red-inventory.json")
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+          print(f"Wrote {out}: {len(files)} files")
+          PY
+
+      - name: Save inventory in repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/another-red-inventory.json
+          if git diff --cached --quiet; then
+            echo "Inventory unchanged"
+          else
+            git commit -m "Add Another Red extracted file inventory"
+            git push
+          fi
+
+      - name: Upload extracted files as a GitHub Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: another-red-extracted-files
+          path: extracted/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Upload inventory as a separate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: another-red-inventory
+          path: analysis/another-red-inventory.json
+          if-no-files-found: error
+          retention-days: 90
